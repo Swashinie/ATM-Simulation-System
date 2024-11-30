@@ -1,0 +1,312 @@
+import java.util.ArrayList;
+import java.util.List;
+
+public class Account {
+    private String accountNumber;
+    private int pin;
+    private double balance;
+    private List<String> transactionHistory;
+
+    public Account(String accountNumber, int pin, double balance) {
+        this.accountNumber = accountNumber;
+        this.pin = pin;
+        this.balance = balance;
+        this.transactionHistory = new ArrayList<>();
+        addTransaction("Account created with initial balance: $" + balance);
+    }
+
+    public boolean validatePin(int inputPin) {
+        return this.pin == inputPin;
+    }
+
+    public String getAccountNumber() {
+        return accountNumber;
+    }
+
+    public double getBalance() {
+        return balance;
+    }
+
+    public void deposit(double amount) {
+        if (amount > 0) {
+            balance += amount;
+            addTransaction("Deposited: $" + amount);
+        } else {
+            throw new IllegalArgumentException("Invalid deposit amount.");
+        }
+    }
+
+    public void withdraw(double amount) {
+        if (amount > 0 && balance >= amount) {
+            balance -= amount;
+            addTransaction("Withdrawn: $" + amount);
+        } else if (amount > balance) {
+            throw new IllegalArgumentException("Insufficient funds.");
+        } else {
+            throw new IllegalArgumentException("Invalid withdrawal amount.");
+        }
+    }
+
+    public void sendMoney(double amount, Account recipient) {
+        if (amount > 0 && balance >= amount) {
+            withdraw(amount);
+            recipient.receiveMoney(amount, this.accountNumber);
+            addTransaction("Transferred: $" + amount + " to Account: " + recipient.getAccountNumber());
+        } else {
+            throw new IllegalArgumentException("Transfer failed. Check balance or amount.");
+        }
+    }
+
+    public void receiveMoney(double amount, String senderAccount) {
+        balance += amount;
+        addTransaction("Received: $" + amount + " from Account: " + senderAccount);
+    }
+
+    public List<String> getTransactionHistory() {
+        return transactionHistory;
+    }
+
+    private void addTransaction(String transaction) {
+        transactionHistory.add(transaction);
+        if (transactionHistory.size() > 10) { // Limit to last 10 transactions
+            transactionHistory.remove(0);
+        }
+    }
+}
+import java.awt.*;
+import java.util.HashMap;
+import javax.swing.*;
+
+public class ATMApplication {
+    private JFrame frame;
+    private JTabbedPane tabbedPane;
+    private JPanel loginPanel, dashboardPanel, transactionPanel, historyPanel;
+    private JTextField accountField, recipientField, depositField, withdrawField;
+    private JPasswordField pinField;
+    private JTextField amountField;
+    private JLabel messageLabel, balanceLabel;
+    private JTextArea transactionHistoryArea;
+    private HashMap<String, Account> accounts;
+    private Account currentAccount;
+
+    public ATMApplication() {
+        // Initialize accounts
+        accounts = new HashMap<>();
+        accounts.put("123456", new Account("123456", 1234, 5000));
+        accounts.put("987654", new Account("987654", 5678, 10000));
+
+        // Initialize frame
+        frame = new JFrame("Advanced ATM Simulation");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(800, 600);
+
+        // Initialize tabbed pane
+        tabbedPane = new JTabbedPane();
+
+        // Build tabs
+        buildLoginPanel();
+        buildDashboardPanel();
+        buildTransactionPanel();
+        buildHistoryPanel();
+
+        // Add tabs to tabbed pane
+        tabbedPane.addTab("Login", loginPanel);
+        tabbedPane.addTab("Dashboard", dashboardPanel);
+        tabbedPane.addTab("Transactions", transactionPanel);
+        tabbedPane.addTab("Transaction History", historyPanel);
+
+        // Set tabbed pane and initial state
+        frame.add(tabbedPane);
+        tabbedPane.setEnabledAt(1, false);
+        tabbedPane.setEnabledAt(2, false);
+        tabbedPane.setEnabledAt(3, false);
+
+        frame.setVisible(true);
+    }
+
+    private void buildLoginPanel() {
+        loginPanel = new JPanel(new GridLayout(5, 1));
+        JLabel accountLabel = new JLabel("Enter Account Number:");
+        JLabel pinLabel = new JLabel("Enter PIN:");
+        accountField = new JTextField();
+        pinField = new JPasswordField();
+        JButton loginButton = new JButton("Login");
+        messageLabel = new JLabel("", JLabel.CENTER);
+
+        loginButton.addActionListener(e -> handleLogin());
+
+        loginPanel.add(accountLabel);
+        loginPanel.add(accountField);
+        loginPanel.add(pinLabel);
+        loginPanel.add(pinField);
+        loginPanel.add(loginButton);
+        loginPanel.add(messageLabel);
+    }
+
+    private void buildDashboardPanel() {
+        dashboardPanel = new JPanel(new BorderLayout());
+
+        // Top: Balance Display
+        balanceLabel = new JLabel("Balance: $0.00", JLabel.CENTER);
+        balanceLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        dashboardPanel.add(balanceLabel, BorderLayout.NORTH);
+
+        // Center: Deposit and Withdraw Options
+        JPanel actionsPanel = new JPanel(new GridLayout(3, 2, 10, 10));
+        JLabel depositLabel = new JLabel("Deposit Amount:");
+        JLabel withdrawLabel = new JLabel("Withdraw Amount:");
+        depositField = new JTextField();
+        withdrawField = new JTextField();
+        JButton depositButton = new JButton("Deposit");
+        JButton withdrawButton = new JButton("Withdraw");
+
+        // Deposit Action
+        depositButton.addActionListener(e -> {
+            String amountText = depositField.getText();
+            try {
+                double amount = Double.parseDouble(amountText);
+                currentAccount.deposit(amount);
+                displayBalance();
+                updateTransactionHistory();
+                JOptionPane.showMessageDialog(frame, "Deposited $" + amount + " successfully!");
+                depositField.setText("");
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(frame, "Invalid amount entered!", "Error", JOptionPane.ERROR_MESSAGE);
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(frame, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        // Withdraw Action
+        withdrawButton.addActionListener(e -> {
+            String amountText = withdrawField.getText();
+            try {
+                double amount = Double.parseDouble(amountText);
+                currentAccount.withdraw(amount);
+                displayBalance();
+                updateTransactionHistory();
+                JOptionPane.showMessageDialog(frame, "Withdrew $" + amount + " successfully!");
+                withdrawField.setText("");
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(frame, "Invalid amount entered!", "Error", JOptionPane.ERROR_MESSAGE);
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(frame, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        // Add Components to Actions Panel
+        actionsPanel.add(depositLabel);
+        actionsPanel.add(depositField);
+        actionsPanel.add(withdrawLabel);
+        actionsPanel.add(withdrawField);
+        actionsPanel.add(depositButton);
+        actionsPanel.add(withdrawButton);
+
+        dashboardPanel.add(actionsPanel, BorderLayout.CENTER);
+
+        // Bottom: Logout Button
+        JButton logoutButton = new JButton("Logout");
+        logoutButton.addActionListener(e -> handleLogout());
+        dashboardPanel.add(logoutButton, BorderLayout.SOUTH);
+    }
+
+    private void buildTransactionPanel() {
+        transactionPanel = new JPanel(new GridLayout(4, 2));
+        JLabel recipientLabel = new JLabel("Recipient Account:");
+        JLabel amountLabel = new JLabel("Amount to Transfer:");
+        recipientField = new JTextField();
+        amountField = new JTextField();
+        JButton sendButton = new JButton("Send Money");
+
+        sendButton.addActionListener(e -> handleSendMoney());
+
+        transactionPanel.add(recipientLabel);
+        transactionPanel.add(recipientField);
+        transactionPanel.add(amountLabel);
+        transactionPanel.add(amountField);
+        transactionPanel.add(new JLabel()); // Spacer
+        transactionPanel.add(sendButton);
+    }
+
+    private void buildHistoryPanel() {
+        historyPanel = new JPanel(new BorderLayout());
+        transactionHistoryArea = new JTextArea();
+        transactionHistoryArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(transactionHistoryArea);
+        historyPanel.add(scrollPane, BorderLayout.CENTER);
+    }
+
+    private void handleLogin() {
+        String accountNumber = accountField.getText();
+        String pinText = new String(pinField.getPassword());
+        int pin;
+
+        try {
+            pin = Integer.parseInt(pinText);
+        } catch (NumberFormatException e) {
+            messageLabel.setText("Invalid PIN format!");
+            return;
+        }
+
+        currentAccount = accounts.get(accountNumber);
+        if (currentAccount != null && currentAccount.validatePin(pin)) {
+            tabbedPane.setEnabledAt(1, true);
+            tabbedPane.setEnabledAt(2, true);
+            tabbedPane.setEnabledAt(3, true);
+            tabbedPane.setSelectedIndex(1);
+            displayBalance();
+        } else {
+            messageLabel.setText("Invalid account number or PIN!");
+        }
+    }
+
+    private void displayBalance() {
+        balanceLabel.setText("Balance: $" + currentAccount.getBalance());
+    }
+
+    private void handleSendMoney() {
+        String recipientAccountNumber = recipientField.getText();
+        String amountText = amountField.getText();
+
+        try {
+            double amount = Double.parseDouble(amountText);
+            Account recipientAccount = accounts.get(recipientAccountNumber);
+
+            if (recipientAccount != null) {
+                currentAccount.sendMoney(amount, recipientAccount);
+                JOptionPane.showMessageDialog(frame, "Transferred $" + amount + " to " + recipientAccountNumber);
+                recipientField.setText("");
+                amountField.setText("");
+                displayBalance();
+                updateTransactionHistory();
+            } else {
+                JOptionPane.showMessageDialog(frame, "Invalid recipient account!", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(frame, "Invalid amount entered!", "Error", JOptionPane.ERROR_MESSAGE);
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(frame, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void updateTransactionHistory() {
+        transactionHistoryArea.setText("");
+        for (String transaction : currentAccount.getTransactionHistory()) {
+            transactionHistoryArea.append(transaction + "\n");
+        }
+    }
+
+    private void handleLogout() {
+        tabbedPane.setSelectedIndex(0);
+        accountField.setText("");
+        pinField.setText("");
+        currentAccount = null;
+        tabbedPane.setEnabledAt(1, false);
+        tabbedPane.setEnabledAt(2, false);
+        tabbedPane.setEnabledAt(3, false);
+    }
+
+    public static void main(String[] args) {
+        new ATMApplication();
+    }
+}
